@@ -1,0 +1,23 @@
+{
+  "audit": {
+    "raw_case_rows": 3927,
+    "raw_case_missing_resolved": 218,
+    "raw_case_missing_agent": 164,
+    "raw_case_duplicates": 151,
+    "clean_case_rows": 3776,
+    "clean_missing_resolution_seconds": 193,
+    "clean_invalid_duration_flag": 193,
+    "open_case_count": 212
+  },
+  "validation_checks": [
+    "PASS: no negative handle seconds",
+    "PASS: SLA/open-case percent in range 0-100",
+    "PASS: duplicate drop did not increase row count",
+    "PASS: created_ts parse null rate acceptable at 0.00%"
+  ],
+  "readiness": {
+    "case_file_lag_hours": 0.0,
+    "agent_file_lag_hours": 0.0,
+    "readiness_warnings": []
+  }
+}
