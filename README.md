@@ -237,8 +237,77 @@ If site DFW2 SLA breach rises **5% -> 12%** and response signal already alert:
 
 ##  Diagrams
 
-- Architecture diagram: `docs/architecture_diagram.md`
-- Pipeline flow diagram: `docs/pipeline_workflow.md`
+### Architecture diagram
+
+```text
++-------------------+        +-------------------------+        +------------------------------+
+| RCX Case Tool     |        | Agent Roster Export     |        | Ingestion Manifest           |
+| (raw cases feed)  |        | (daily csv)             |        | (expected row estimate)      |
++---------+---------+        +------------+------------+        +--------------+---------------+
+          |                               |                                      |
+          +---------------+---------------+----------------------+---------------+
+                          |                                      |
+                          v                                      v
+      +----------------------------------------+    +------------------------------+
+      | Ingest + Readiness Layer (Python csv)  |    | SQL KPI Layer                |
+      | - schema check                          |    | - joins with agents/targets  |
+      | - delay check                           |    | - segments + trend windows   |
+      +-------------------+--------------------+                  |
+                          |                                       |
+                          v                                       v
+      +----------------------------------------+      +-----------------------------+
+      | Clean/Transform Layer                  |----->| KPI Outputs                 |
+      | - dedupe                               |      | daily snapshot + productivity|
+      | - mixed timestamp parse                |      +--------------+--------------+
+      | - open case handling                   |                     |
+      | - outlier cap                          |                     v
+      +-------------------+--------------------+      +-----------------------------+
+                          |                           | Dashboard + Alerts          |
+                          v                           | red/yellow/green statuses   |
+      +----------------------------------------+      +-----------------------------+
+      | Storage Layer                          |
+      | data/processed/*.csv + audit json      |
+      +----------------------------------------+
+```
+
+### Pipeline flow diagram
+
+```text
+[Start Daily Run]
+      |
+      v
+[Ingest raw CSV + manifest]
+      |
+      v
+[Readiness checks]
+ - delayed files?
+ - partial arrival?
+ - schema drift?
+      |----> fail hard -> [Retry in 15 min] -> [Fail DAG after retry limit]
+      |----> warn -> continue with warning in audit
+      v
+[Clean + Standardize]
+  - remove duplicates
+  - parse mixed timestamps
+  - fill missing agent with A999
+  - cap outliers
+      |
+      v
+[Transform KPI Tables]
+      |
+      v
+[Validation checks]
+  - metric ranges
+  - row count sanity
+      |
+      v
+[Write publish_decision.json]
+      |
+      v
+[Airflow branch]
+  |---- publish_allowed=true  -> [Publish outputs]
+  |---- publish_allowed=false -> [Skip publish + investigate]
+```
 
 ---
 
