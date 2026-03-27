@@ -5,7 +5,7 @@ It is focused on daily decisions: SLA risk, backlog pressure, and agent producti
 
 ---
 
-## STEP 0 - Internal analysis (business first)
+##  Internal analysis (business first)
 
 ### 1) Business problem
 RCX managers are seeing customer case queues fluctuate by day and channel, but they do not have one daily view that ties **SLA breaches + response delays + productivity** together. The result is late staffing reactions. Breaches are noticed after escalation, not before.
@@ -31,7 +31,7 @@ RCX managers are seeing customer case queues fluctuate by day and channel, but t
 
 ---
 
-## STEP 1 - KPI definitions with action meaning
+##  KPI definitions with action meaning
 
 1. **KPI: SLA Breach % by site + priority**  
    **SQL logic:** breached cases / total by day/site/priority segment with threshold table join.  
@@ -60,7 +60,7 @@ RCX managers are seeing customer case queues fluctuate by day and channel, but t
 
 ---
 
-## STEP 2 - Data design (realistic imperfections)
+##  Data design (realistic imperfections)
 
 Raw datasets in `data/raw/`:
 - `cases_raw.csv`
@@ -85,7 +85,7 @@ Why these happen in real life:
 
 ---
 
-## STEP 3 - Architecture and production thinking
+##  Architecture and production thinking
 
 ### Data sources
 - Case handling extract (daily CSV snapshot)
@@ -121,7 +121,7 @@ Why these happen in real life:
 
 ---
 
-## STEP 4 - SQL design (deeper)
+##  SQL design (deeper)
 
 Full SQL: `sql/kpi_queries.sql`.
 
@@ -136,7 +136,7 @@ This keeps KPI meaning in one place and reduces dashboard-side logic drift.
 
 ---
 
-## STEP 5 - Python pipeline realism
+##  Python pipeline realism
 
 `src/pipeline.py` stages:
 1. ingest
@@ -165,7 +165,7 @@ It does not assume perfect upstream delivery and separates **data readiness fail
 
 ---
 
-## STEP 6 - Airflow DAG (improved)
+##  Airflow DAG (improved)
 
 File: `dags/rcx_kpi_daily_dag.py`
 - schedule: daily `03:30 UTC`
@@ -180,7 +180,7 @@ If validation fails, branch sends run to `skip_publish` so reporting refresh is 
 
 ---
 
-## STEP 7 - Validation and DQ
+##  Validation and DQ
 
 Checks implemented:
 - no negative handle values
@@ -197,7 +197,7 @@ Checks still missing:
 
 ---
 
-## STEP 8 - Dashboard logic (decision-driven)
+##  Dashboard logic (decision-driven)
 
 ### First panel (manager sees first)
 `SLA status`, `Backlog status`, `First response signal`, `P1 mix` by site.
@@ -220,7 +220,7 @@ If site DFW2 SLA breach rises **5% -> 12%** and response signal already alert:
 
 ---
 
-## STEP 9 - Key learnings + limitations
+##  Key learnings + limitations
 
 ### Key learnings
 - Most real effort is in readiness and data quality checks, not chart building.
@@ -240,9 +240,82 @@ If site DFW2 SLA breach rises **5% -> 12%** and response signal already alert:
 - Architecture diagram: `docs/architecture_diagram.md`
 - Pipeline flow diagram: `docs/pipeline_workflow.md`
 
+### Architecture diagram (embedded)
+
+```text
++-------------------+        +-------------------------+        +------------------------------+
+| RCX Case Tool     |        | Agent Roster Export     |        | Ingestion Manifest           |
+| (raw cases feed)  |        | (daily csv)             |        | (expected row estimate)      |
++---------+---------+        +------------+------------+        +--------------+---------------+
+          |                               |                                      |
+          +---------------+---------------+----------------------+---------------+
+                          |                                      |
+                          v                                      v
+      +----------------------------------------+    +------------------------------+
+      | Ingest + Readiness Layer (Python csv)  |    | SQL KPI Layer                |
+      | - schema check                          |    | - joins with agents/targets  |
+      | - delay check                           |    | - segments + trend windows   |
+      | - partial arrival check                 |    +------------------------------+
+      +-------------------+--------------------+                  |
+                          |                                       |
+                          v                                       v
+      +----------------------------------------+      +-----------------------------+
+      | Clean/Transform Layer                  |----->| KPI Outputs                 |
+      | - dedupe                               |      | daily snapshot + productivity|
+      | - mixed timestamp parse                |      +--------------+--------------+
+      | - open case handling                   |                     |
+      | - outlier cap                          |                     v
+      +-------------------+--------------------+      +-----------------------------+
+                          |                           | Dashboard + Alerts          |
+                          v                           | red/yellow/green statuses   |
+      +----------------------------------------+      +-----------------------------+
+      | Storage Layer                          |
+      | data/processed/*.csv + audit json      |
+      +----------------------------------------+
+```
+
+### Pipeline workflow diagram (embedded)
+
+```text
+[Start Daily Run]
+      |
+      v
+[Ingest raw CSV + manifest]
+      |
+      v
+[Readiness checks]
+ - delayed files?
+ - partial arrival?
+ - schema drift?
+      |----> fail hard -> [Retry in 15 min] -> [Fail DAG after retry limit]
+      |----> warn -> continue with warning in audit
+      v
+[Clean + Standardize]
+  - remove duplicates
+  - parse mixed timestamps
+  - fill missing agent with A999
+  - cap outliers
+      |
+      v
+[Transform KPI Tables]
+      |
+      v
+[Validation checks]
+  - metric ranges
+  - row count sanity
+      |
+      v
+[Write publish_decision.json]
+      |
+      v
+[Airflow branch]
+  |---- publish_allowed=true  -> [Publish outputs]
+  |---- publish_allowed=false -> [Skip publish + investigate]
+```
+
 ---
 
-## STEP 11 - Risk analysis and self-review
+## Risk analysis and self-review
 
 ### Most dangerous KPI if wrong
 **SLA Breach %** is highest-risk if wrong. Underreported breach leads to delayed staffing response and customer promise failures.
