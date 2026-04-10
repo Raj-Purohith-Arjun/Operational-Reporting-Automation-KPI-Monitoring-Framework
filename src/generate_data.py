@@ -62,14 +62,18 @@ def build_cases(start_date: str = "2026-01-01", days: int = 60):
 
             if random.random() < 0.018:
                 handle_seconds = random.randint(6000, 22000)
-
+            
             first_response_seconds = max(5, int(handle_seconds * random.uniform(0.15, 0.65)))
             backlog_pressure = 1.0 if weekday < 5 else 0.7
+            sla_seconds = 24 * 3600 if priority == "P1" else (48 * 3600 if priority == "P2" else 72 * 3600)
             resolution_seconds = int(handle_seconds * random.uniform(1.1, 2.8) * backlog_pressure)
+            if random.random() < 0.12:
+                resolution_seconds = int(sla_seconds * random.uniform(1.1, 1.8))
+
             resolved_at = created + timedelta(seconds=resolution_seconds)
 
-            sla_seconds = 24 * 3600 if priority == "P1" else (48 * 3600 if priority == "P2" else 72 * 3600)
-            breach = 1 if (resolved_at - created).total_seconds() > sla_seconds else 0
+            breach = 1 if resolution_seconds > sla_seconds else 0
+            
 
             rows.append(
                 {

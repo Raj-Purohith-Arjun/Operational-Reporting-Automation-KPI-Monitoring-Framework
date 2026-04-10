@@ -1,13 +1,13 @@
 {
   "audit": {
-    "raw_case_rows": 3927,
-    "raw_case_missing_resolved": 218,
-    "raw_case_missing_agent": 164,
-    "raw_case_duplicates": 151,
-    "clean_case_rows": 3776,
-    "clean_missing_resolution_seconds": 193,
-    "clean_invalid_duration_flag": 193,
-    "open_case_count": 212
+    "raw_case_rows": 4086,
+    "raw_case_missing_resolved": 236,
+    "raw_case_missing_agent": 174,
+    "raw_case_duplicates": 157,
+    "clean_case_rows": 3929,
+    "clean_missing_resolution_seconds": 153,
+    "clean_invalid_duration_flag": 153,
+    "open_case_count": 229
   },
   "validation_checks": [
     "PASS: no negative handle seconds",
