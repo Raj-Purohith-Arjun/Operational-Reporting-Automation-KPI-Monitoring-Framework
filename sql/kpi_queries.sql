@@ -1,13 +1,5 @@
--- RCX KPI SQL pack (production-leaning version)
--- Main idea: push business logic into SQL so dashboards + downstream models read same definitions.
--- Assumed source objects:
---   fact_cases_raw            : cleaned event-level case table landed daily
---   dim_agents                : agent attributes (team, manager, tenure)
---   dim_site_sla_thresholds   : site+priority SLA bad/warn thresholds by effective date
 
--- =====================================================================
--- Base model: enrich and standardize in SQL (join with agent + thresholds)
--- =====================================================================
+
 WITH case_enriched AS (
     SELECT
         f.case_id,
@@ -60,9 +52,9 @@ SELECT *
 FROM case_enriched;
 
 
--- =====================================================================
+
 -- KPI 1: SLA Breach % by site/priority/day + status bands
--- =====================================================================
+
 WITH daily_sla AS (
     SELECT
         DATE(created_ts) AS report_date,
@@ -89,10 +81,10 @@ SELECT
 FROM daily_sla;
 
 
--- =====================================================================
+
 -- KPI 2: Leading indicator - 7d first response trend with acceleration
 -- Why leading: response delays usually increase before SLA misses show up
--- =====================================================================
+
 WITH daily_frt AS (
     SELECT
         DATE(created_ts) AS report_date,
@@ -137,9 +129,9 @@ SELECT
 FROM trend;
 
 
--- =====================================================================
+
 -- KPI 3: Backlog risk by site/channel/priority (decision KPI)
--- =====================================================================
+
 SELECT
     DATE(created_ts) AS report_date,
     site_code,
@@ -157,9 +149,9 @@ FROM case_enriched
 GROUP BY 1,2,3,4;
 
 
--- =====================================================================
+
 -- KPI 4: Productivity with fairness segmentation
--- =====================================================================
+
 SELECT
     DATE(created_ts) AS report_date,
     site_code,
@@ -177,9 +169,9 @@ FROM case_enriched
 GROUP BY 1,2,3,4,5;
 
 
--- =====================================================================
+
 -- KPI 5: Complexity mix (to avoid wrong action on throughput)
--- =====================================================================
+
 SELECT
     DATE(created_ts) AS report_date,
     site_code,
@@ -197,8 +189,3 @@ SELECT
 FROM case_enriched
 GROUP BY 1,2,3;
 
--- Notes / edge cases:
--- 1) NULLIF protects division for zero-volume edge days.
--- 2) COALESCE/NULLIF protects sparse agent and issue fields.
--- 3) Threshold defaults applied when site threshold dim is missing.
--- 4) Trend KPI can be noisy first 6 days (short MA window by design).
